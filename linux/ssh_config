@@ -1,0 +1,16 @@
+Host kyklop
+        HostName 192.168.0.192
+        Port 22
+        ForwardX11 no
+
+Host muj_server
+        User jmeno.prijmeni
+        Hostname muj_server
+        Port 2222
+
+Host *
+        User muj_username
+        IdentityFile ~/.ssh/id_ed25519
+        Protocol 2
+        Compression yes
+        LogLevel INFO

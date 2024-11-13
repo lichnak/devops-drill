@@ -1,0 +1,76 @@
+services:
+    myapp-portal:
+        build:
+            context: .
+            dockerfile: ./Dockerfile
+        container_name: myapp-portal
+        restart: always
+        ports:
+            - "80"
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.myapp-portal.rule=Host(`php.local`)"
+            - "traefik.http.routers.myapp-portal.tls=true"
+        volumes:
+            - ./src:/srv
+        links:
+            - myapp-db
+        env_file:
+            - src/.env
+        environment:
+            DATABASE_URL: ${DATABASE_URL}
+            APP_ENV: ${APP_ENV}
+            APP_SECRET: ${APP_SECRET}
+            MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN}
+        depends_on:
+            - myapp-proxy
+
+    myapp-db:
+        build:
+            dockerfile: ./Dockerfile_postgres
+        container_name: myapp-db
+        restart: always
+        ports:
+            - "5432:5432"
+        volumes:
+            - ./postgres-data-dev:/var/lib/postgres/data
+            #- ./conf/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+        env_file:
+            - src/.env
+        environment:
+            - POSTGRES_DB=${DB_NAME}
+            - POSTGRES_USER=${DB_USER}
+            - POSTGRES_PASSWORD=${DB_PASSWORD}
+        depends_on:
+            - myapp-proxy
+
+    myapp-proxy:
+        image: traefik:latest
+        container_name: myapp-proxy
+        ports:
+            - "80:80"
+            - "443:443"
+            - "8080:8080"
+        volumes:
+            - ./conf/traefik/dynamic_conf.yaml:/etc/traefik/dynamic_conf.yaml:ro
+            - ./conf/traefik/traefik.yaml:/etc/traefik/traefik.yaml:ro
+            - ./conf/certs:/etc/certs:ro
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+        security_opt:
+            - no-new-privileges:true
+        restart: unless-stopped
+
+    myapp-mailpit:
+        image: axllent/mailpit
+        container_name: myapp-mailpit
+        restart: unless-stopped
+        ports:
+            - "8025:8025"
+            - "1025:1025"
+        environment:
+            TZ: Europe/Prague
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.myapp-mailpit.rule=Host(`mail.php.local`)"
+            - "traefik.http.routers.myapp-mailpit.tls=true"
+            - "traefik.http.services.myapp-mailpit.loadbalancer.server.port=8025"

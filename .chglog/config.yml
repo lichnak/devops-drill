@@ -1,0 +1,35 @@
+bin: git
+style: "gitlab"
+template: CHANGELOG.tpl.md
+info:
+  title: CHANGELOG
+  repository_url: https://git.f13cybertech.com/f13-infra/snippets
+
+options:
+  sort: "date"
+
+  commits:
+    filters:
+      Type:
+        - feat
+        - fix
+        - perf
+    sort_by: Scope
+
+  commit_groups:
+    group_by: Type
+    sort_by: Title
+
+  merges:
+    pattern: "^Merge branch '(\\w+)'$"
+    pattern_maps:
+      - Source
+
+  reverts:
+    pattern: "^Revert \"([\\s\\S]*)\"$"
+    pattern_maps:
+      - Header
+
+  notes:
+    keywords:
+      - BREAKING CHANGE
