@@ -1,0 +1,129 @@
+# when to trigger pipeline runs
+workflow:
+  rules:
+    # never run for scheduled pipelines
+    # remove this rule if some of your jobs need to be scheduled
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    # run for merge requests
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    # run on master branch (after merge)
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      when: always
+    # run on release tags
+    - if: '$CI_COMMIT_TAG =~ /^release-*/'
+      when: always
+
+stages:
+  - format
+  - sast
+  - test
+  - security
+  - deploy
+
+variables:
+  APP_NAME: cyberscore_be
+  APP_SOURCE: src/cyberscore_be/*.py
+  APP_TESTS: src/tests
+
+image: python:3.9
+
+before_script:
+  - python --version
+  - pip install -r requirements-testing.txt
+
+mypy:
+  stage: sast
+  script:
+  - python -m mypy $APP_SOURCE
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH
+  tags:
+  - "docker shared"
+
+flake8:
+  stage: sast
+  script:
+  - flake8 --max-line-length=120 --max-complexity 8 $APP_SOURCE
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH
+  tags:
+  - "docker shared"
+
+pylint:
+  stage: sast
+  script:
+  - pylint -d C0301 -d R0902 $APP_SOURCE
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH
+  tags:
+  - "docker shared"
+
+isort:
+  stage: format
+  script:
+  - isort $APP_SOURCE
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH
+  tags:
+  - "docker shared"
+
+pytest:
+  stage: test
+  script:
+  - pytest $APP_TESTS
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH
+  tags:
+  - "docker shared"
+
+coverage:
+  stage: test
+  allow_failure: true
+  script:
+  - pytest --cov-report term-missing --cov=$APP_NAME $APP_TESTS
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH
+  tags:
+  - "docker shared"
+
+safety:
+  stage: security
+  script:
+  - safety check
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH
+  tags:
+  - "docker shared"
+
+bandit:
+  stage: security
+  script:
+  - bandit -r $APP_SOURCE
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH
+  tags:
+  - "docker shared"
+
+black:
+  stage: format
+  script:
+  - black $APP_SOURCE
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH
+  tags:
+  - "docker shared"
+
+# pages:
+#   stage: deploy
+#   script:
+#     - pip install -r requirements.txt
+#     - sphinx-build -b html docs/source public
+#   artifacts:
+#     paths:
+#       - public
+#   rules:
+#     - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+#   tags:
+#   - "docker shared"
